@@ -18,3 +18,8 @@ cat out  | sort  > sorted_ref
 ```
 diff sorted sorted_ref
 ```
+
+# TODO
+Better error handling
+What if line langer then memory limit?
+Minimize allocs
