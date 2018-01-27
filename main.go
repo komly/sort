@@ -60,15 +60,9 @@ func chunkReader(r io.Reader, limit int) (chan []string) {
 
 }
 
-func main() {
-	flag.Parse()
-	if *limit == 0 {
-		*limit = 10 * 1024 * 1024 //TODO: heuristic from runtime.Memstats or /proc
-	}
-
-	files := make([]string, 0)
-
-	for chunk := range chunkReader(os.Stdin, *limit) {
+func createSortedFiles(r io.Reader) ([]string, error) {
+	fileNames := make([]string, 0)
+	for chunk := range chunkReader(r, *limit) {
 		if *verbose {
 			log.Printf("read chunk: %+v", chunk)
 		}
@@ -76,31 +70,32 @@ func main() {
 		sort.Strings(chunk)
 		fileName, err := writeToTempFile(chunk)
 		if err != nil {
-			log.Printf("can't write chunk file: %v", err)
-			return
+			return nil, fmt.Errorf("can't write chunk file: %v", err)
 		}
 
 		if *verbose {
 			log.Printf("chunk filename: %v", fileName)
 		}
-		defer os.Remove(fileName)
 
-		files = append(files, fileName)
+		fileNames = append(fileNames, fileName)
 	}
+	return fileNames, nil
+}
 
+func mergeFilesToStdout(files []string) error {
+	if *verbose {
+		log.Printf("will merge chunks: %+v", files)
+	}
 	scanners := make(map[*bufio.Scanner]struct{})
 	for _, fileName := range files {
 		f, err := os.Open(fileName)
 		if err != nil {
-			log.Printf("can't open chunk file: %v", err)
-			return
+			return fmt.Errorf("can't open chunk file: %v", err)
 		}
 		defer f.Close()
 
 		scanners[bufio.NewScanner(f)] = struct{}{}
 	}
-
-
 
 	for s := range scanners {
 		if !s.Scan() {
@@ -109,7 +104,7 @@ func main() {
 	}
 
 	if len(scanners) <= 0 {
-		return
+		return nil
 	}
 
 	for {
@@ -125,7 +120,10 @@ func main() {
 				minScanner = s
 			}
 		}
-		fmt.Printf("%s\n", minScanner.Text())
+		_, err := fmt.Printf("%s\n", minScanner.Text())
+		if err != nil {
+			return fmt.Errorf("can't write result file: %v",err)
+		}
 		if !minScanner.Scan() {
 			delete(scanners, minScanner)
 		}
@@ -136,4 +134,27 @@ func main() {
 
 	}
 
+	return  nil
+}
+
+func main() {
+	flag.Parse()
+	if *limit == 0 {
+		*limit = 10 * 1024 * 1024 //TODO: heuristic from runtime.Memstats or /proc
+	}
+
+	fileNames, err := createSortedFiles(os.Stdin)
+	if err != nil {
+		log.Printf("can't create sorted files: %v", err)
+		return
+	}
+
+	for _, f := range fileNames {
+		defer os.Remove(f)
+	}
+
+	if err := mergeFilesToStdout(fileNames); err != nil {
+		log.Printf("can't merge sorted files: %v", err)
+		return
+	}
 }
