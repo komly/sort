@@ -1,4 +1,7 @@
+
 # sort
+[![Build Status](https://travis-ci.org/komly/sort.svg?branch=master)](https://travis-ci.org/komly/sort)
+
 External memory file sorter linke unix `sort`
 
 Basic idea split file into chunks, sort, and merge like merge operation in merge sort algorithm
