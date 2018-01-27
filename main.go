@@ -28,7 +28,6 @@ func writeToTempFile(lines []string) (string, error) {
 	return tempFile.Name(), nil
 }
 
-
 func chunkReader(r io.Reader, limit int) (chan []string) {
 	res := make(chan []string)
 	go func() {
@@ -82,19 +81,11 @@ func createSortedFiles(r io.Reader) ([]string, error) {
 	return fileNames, nil
 }
 
-func mergeFilesToStdout(files []string) error {
-	if *verbose {
-		log.Printf("will merge chunks: %+v", files)
-	}
-	scanners := make(map[*bufio.Scanner]struct{})
-	for _, fileName := range files {
-		f, err := os.Open(fileName)
-		if err != nil {
-			return fmt.Errorf("can't open chunk file: %v", err)
-		}
-		defer f.Close()
+func mergeReaders(readers []io.Reader, w io.Writer) error {
 
-		scanners[bufio.NewScanner(f)] = struct{}{}
+	scanners := make(map[*bufio.Scanner]struct{})
+	for _, r := range readers {
+		scanners[bufio.NewScanner(r)] = struct{}{}
 	}
 
 	for s := range scanners {
@@ -120,7 +111,7 @@ func mergeFilesToStdout(files []string) error {
 				minScanner = s
 			}
 		}
-		_, err := fmt.Printf("%s\n", minScanner.Text())
+		_, err := fmt.Fprintf(w, "%s\n", minScanner.Text())
 		if err != nil {
 			return fmt.Errorf("can't write result file: %v",err)
 		}
@@ -145,16 +136,25 @@ func main() {
 
 	fileNames, err := createSortedFiles(os.Stdin)
 	if err != nil {
-		log.Printf("can't create sorted files: %v", err)
+		log.Fatalf("can't create sorted files: %v", err)
 		return
 	}
 
-	for _, f := range fileNames {
-		defer os.Remove(f)
+	readers := make([]io.Reader, 0)
+	for _, fn := range  fileNames {
+		f, err := os.Open(fn)
+		if err != nil {
+			log.Fatalf("can't open chunk file: %v", err)
+			return
+		}
+		readers = append(readers, f)
+		defer os.Remove(fn)
+		defer f.Close()
+
 	}
 
-	if err := mergeFilesToStdout(fileNames); err != nil {
-		log.Printf("can't merge sorted files: %v", err)
+	if err := mergeReaders(readers, os.Stdout); err != nil {
+		log.Fatalf("can't merge sorted files: %v", err)
 		return
 	}
 }
