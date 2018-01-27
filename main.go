@@ -1,55 +1,54 @@
 package main
 
 import (
-    "os"
-    "bufio"
-    "sort"
-    "io/ioutil"
-    "fmt"
-    "io"
-	"strings"
-	"log"
+	"bufio"
 	"flag"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
+	"os"
+	"sort"
+	"strings"
 )
 
 var limit = flag.Int("chunk_size", 0, "chunk size in bytes")
 
 func createSortedFiles(r io.Reader) ([]*os.File, error) {
-    s := bufio.NewScanner(r)
+	s := bufio.NewScanner(r)
 
-    buffer := make([]string, 0)
-    LIMIT := 300 * 1024 * 1024 // 100m
-    read := 0
-    files := make([]*os.File, 0)
+	buffer := make([]string, 0)
+	LIMIT := 300 * 1024 * 1024 // 100m
+	read := 0
+	files := make([]*os.File, 0)
 
-    for s.Scan() {
+	for s.Scan() {
 		line := s.Text()
 		buffer = append(buffer, line)
 		read += len(line)
 
-
 		if read >= LIMIT {
-            sort.Strings(buffer)
-            tempFile, err := ioutil.TempFile("", "chunk")
-            if err != nil {
-                return nil, fmt.Errorf("can't create temp file: %v", err)
-            }
-            for _, l := range buffer {
-                fmt.Fprintf(tempFile, "%s\n", l)
-            }
+			sort.Strings(buffer)
+			tempFile, err := ioutil.TempFile("", "chunk")
+			if err != nil {
+				return nil, fmt.Errorf("can't create temp file: %v", err)
+			}
+			for _, l := range buffer {
+				fmt.Fprintf(tempFile, "%s\n", l)
+			}
 
-            if _, err := tempFile.Seek(0, 0); err != nil {
-                os.Remove(tempFile.Name())
-                return nil, fmt.Errorf("can't seek file: %v", err)
-            }
+			if _, err := tempFile.Seek(0, 0); err != nil {
+				os.Remove(tempFile.Name())
+				return nil, fmt.Errorf("can't seek file: %v", err)
+			}
 
-            files = append(files, tempFile)
-            buffer = make([]string, 0)
-            read = 0
-        }
-    }
+			files = append(files, tempFile)
+			buffer = make([]string, 0)
+			read = 0
+		}
+	}
 
-    if len(buffer) > 0 {
+	if len(buffer) > 0 {
 		sort.Strings(buffer)
 		tempFile, err := ioutil.TempFile("", "chunk")
 		if err != nil {
@@ -66,7 +65,6 @@ func createSortedFiles(r io.Reader) ([]*os.File, error) {
 		files = append(files, tempFile)
 	}
 
-
 	return files, nil
 }
 
@@ -76,17 +74,17 @@ func main() {
 		*limit = 10 * 1024 * 1024 //TODO: heuristic from runtime.Memstats or /proc
 	}
 
-    files, err := createSortedFiles(os.Stdin)
-    if err != nil {
-        log.Printf("can't create sorted files")
-    }
+	files, err := createSortedFiles(os.Stdin)
+	if err != nil {
+		log.Printf("can't create sorted files")
+	}
 
-    scanners := make(map[*bufio.Scanner]struct{})
+	scanners := make(map[*bufio.Scanner]struct{})
 
-    for _, f := range files {
+	for _, f := range files {
 		defer os.Remove(f.Name())
 		scanners[bufio.NewScanner(f)] = struct{}{}
-    }
+	}
 
 	if len(scanners) <= 0 {
 		return
@@ -97,7 +95,6 @@ func main() {
 			delete(scanners, s)
 		}
 	}
-
 
 	for {
 		var minScanner *bufio.Scanner
