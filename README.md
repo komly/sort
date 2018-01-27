@@ -9,6 +9,12 @@ Generate payload data
 `go run generator/main.go -count=1000 -length=1000 > out`
 
 Then compare
-`cat out  | go run main.go  > sorted`
-`cat out  | sort  > sorted_ref`
-`diff sorted sorted_ref`
+```
+cat out  | go run main.go  > sorted
+```
+```
+cat out  | sort  > sorted_ref
+```
+```
+diff sorted sorted_ref
+```
