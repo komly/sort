@@ -1,7 +1,6 @@
 package main
 
 import (
-    "log"
     "os"
     "bufio"
     "sort"
@@ -9,7 +8,11 @@ import (
     "fmt"
     "io"
 	"strings"
+	"log"
+	"flag"
 )
+
+var limit = flag.Int("chunk_size", 0, "chunk size in bytes")
 
 func createSortedFiles(r io.Reader) ([]*os.File, error) {
     s := bufio.NewScanner(r)
@@ -68,9 +71,14 @@ func createSortedFiles(r io.Reader) ([]*os.File, error) {
 }
 
 func main() {
+	flag.Parse()
+	if *limit == 0 {
+		*limit = 10 * 1024 * 1024 //TODO: heuristic from runtime.Memstats or /proc
+	}
+
     files, err := createSortedFiles(os.Stdin)
     if err != nil {
-        log.Printf("can't create soted files")
+        log.Printf("can't create sorted files")
     }
 
     scanners := make(map[*bufio.Scanner]struct{})
